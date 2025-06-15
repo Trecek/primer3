@@ -234,6 +234,29 @@ if (-x $exe_ntdpal) {
 }
 
 # ==================================
+# Test 9: ntthal hybrid parser - test original strncmp behavior
+# Test that -dna matches -d (original used strncmp with length 2)
+print "Test 9: ntthal -dna abbreviation compatibility... ";
+$test_count++;
+if (-x $exe_thal) {
+    my $cmd = "$exe_thal -s1 ACGTACGT -s2 TGCATGCA -dna 100 -a ANY 2>&1";
+    my $output = `$cmd`;
+    my $exit_code = $? >> 8;
+    
+    if ($exit_code == 0) {
+        print "[OK]\n";
+    } else {
+        print "[FAILED]\n";
+        print "  Expected -dna to be accepted as abbreviation for -d\n";
+        print "  Exit code: $exit_code\n";
+        print "  Output:\n$output\n";
+        $failure++;
+    }
+} else {
+    print "[SKIPPED] (ntthal not found)\n";
+}
+
+# ==================================
 # Summary
 print "\n=== SUMMARY ===\n";
 if ($failure == 0) {
