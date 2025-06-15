@@ -45,6 +45,19 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* This program provides a command line interface to
    the function oligotm() in oligtm.c
 */
+
+/* Valid command line arguments for oligotm */
+static const char* valid_args[] = {
+    "-mv", "-dv", "-n", "-d", "-dm", "-df", "-fo", "-tp", "-sc", NULL
+};
+
+/* Forward declaration */
+int parse_oligotm_args(int argc, char **argv, const char *usage, const char *copyright,
+                       double *mv, double *dv, double *n, double *d,
+                       double *dmso, double *dmso_fact, double *formamide,
+                       int *tm_santalucia, int *salt_corrections,
+                       int *seq_start_index);
+
 int
 main(int argc, char **argv)
 {
@@ -115,142 +128,37 @@ main(int argc, char **argv)
 "    or write to the Free Software Foundation, Inc.,\n"
 "    51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA\n";
 
-   char *endptr, *seq;
+   char *seq;
    tm_ret tm_calc;  /* structure with Tm and bound (primer fraction) */
    double mv = 50, d = 50;
    double dv = 1.5, n = 0.6;
    double dmso = 0.0, dmso_fact = 0.6, formamide = 0.0;
    int tm_santalucia=1, salt_corrections=1;
-   int i, j, len;
+   int seq_start_index = 0;
+   int j, len;
+   
    if (argc < 2 || argc > 14) {
      fprintf(stderr, msg, argv[0]);
      fprintf(stderr, "%s", copyright);
      return -1;
    }
 
-   for (i=1; i < argc; ++i) {
-     if (!strncmp("-mv", argv[i], 3)) { /* conc of monovalent cations */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       mv = strtod(argv[i+1], &endptr);
-       if ('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-dv", argv[i], 3)) { /* conc of divalent cations; added by T.Koressaar */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       dv = strtod(argv[i+1], &endptr);
-       if('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-n", argv[i], 2)) { /* conc of dNTP; added by T.Koressaar */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       n = strtod(argv[i+1], &endptr);
-       if('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-d", argv[i], 2)) {
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       d = strtod(argv[i+1], &endptr);
-       if ('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-dm", argv[i], 2)) {
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       dmso = strtod(argv[i+1], &endptr);
-       if ('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-df", argv[i], 2)) {
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       dmso_fact = strtod(argv[i+1], &endptr);
-       if ('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-fo", argv[i], 2)) {
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       formamide = strtod(argv[i+1], &endptr);
-       if ('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-tp", argv[i], 3)) { /* added by T.Koressaar */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       tm_santalucia = (int)strtol(argv[i+1], &endptr, 10);
-       if ('\0' != *endptr || tm_santalucia<0 || tm_santalucia>2) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-sc", argv[i], 3)) { /* added by T.Koressaar */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       salt_corrections = (int)strtol(argv[i+1], &endptr, 10);
-       if ('\0' != *endptr || salt_corrections<0 || salt_corrections>2) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-", argv[i], 1)) {
-       /* Unknown option. */
-       fprintf(stderr, msg, argv[0]);
-       exit(-1);
-     } else
-       break;                /* all args processed. go on to sequences. */
+   /* Parse command line arguments */
+   if (parse_oligotm_args(argc, argv, msg, copyright,
+                          &mv, &dv, &n, &d,
+                          &dmso, &dmso_fact, &formamide,
+                          &tm_santalucia, &salt_corrections,
+                          &seq_start_index) != 0) {
+     return -1;
    }
 
-  if(!argv[i]) { /* if no oligonucleotide sequence is specified */
+  if(seq_start_index >= argc || !argv[seq_start_index]) { 
+    /* if no oligonucleotide sequence is specified */
     fprintf(stderr, msg, argv[0]);
     exit(-1);
   }
   /* input sequence to uppercase */
-  seq = argv[i];
+  seq = argv[seq_start_index];
   len=strlen(seq);
   for(j=0;j<len;j++) seq[j]=toupper(seq[j]);
 
@@ -264,9 +172,171 @@ main(int argc, char **argv)
             "             the sequence contains an illegal character or\n"
             "             you have specified incorrect value for concentration of divalent cations or\n"
             "             you have specified incorrect value for concentration of dNTPs\n",
-            argv[0], argv[i]);
+            argv[0], seq);
     return -1;
   }
   fprintf(stdout, "%f\n", tm);
   return 0;
+}
+
+/* Parse command line arguments with hybrid parser that supports both exact matches and unique abbreviations */
+int parse_oligotm_args(int argc, char **argv, const char *usage, const char *copyright,
+                       double *mv, double *dv, double *n, double *d,
+                       double *dmso, double *dmso_fact, double *formamide,
+                       int *tm_santalucia, int *salt_corrections,
+                       int *seq_start_index) {
+    char *endptr;
+    int i, j;
+    
+    for (i = 1; i < argc; ++i) {
+        const char *current_arg = argv[i];
+        const char *matched_arg = NULL;
+        int match_count = 0;
+        
+        /* Skip if not an option (doesn't start with '-') */
+        if (current_arg[0] != '-') {
+            *seq_start_index = i;
+            return 0; /* Successfully parsed all arguments */
+        }
+        
+        /* First check for exact match */
+        for (j = 0; valid_args[j] != NULL; j++) {
+            if (strcmp(current_arg, valid_args[j]) == 0) {
+                matched_arg = valid_args[j];
+                match_count = 1;
+                break; /* Exact match found */
+            }
+        }
+        
+        /* If no exact match, check for unique abbreviation */
+        if (match_count == 0) {
+            for (j = 0; valid_args[j] != NULL; j++) {
+                if (strncmp(current_arg, valid_args[j], strlen(current_arg)) == 0) {
+                    if (match_count == 0) {
+                        matched_arg = valid_args[j];
+                    }
+                    match_count++;
+                }
+            }
+        }
+        
+        /* Handle the match result */
+        if (match_count == 0) {
+            /* Unknown argument */
+            fprintf(stderr, "error: unknown argument '%s'\n", current_arg);
+            fprintf(stderr, usage, argv[0]);
+            return -1;
+        } else if (match_count > 1) {
+            /* Ambiguous argument */
+            fprintf(stderr, "error: ambiguous argument '%s'\n", current_arg);
+            fprintf(stderr, usage, argv[0]);
+            return -1;
+        }
+        
+        /* Process the matched argument */
+        if (strcmp(matched_arg, "-mv") == 0) { /* conc of monovalent cations */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *mv = strtod(argv[i+1], &endptr);
+            if ('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-dv") == 0) { /* conc of divalent cations */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *dv = strtod(argv[i+1], &endptr);
+            if('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-n") == 0) { /* conc of dNTP */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *n = strtod(argv[i+1], &endptr);
+            if('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-d") == 0) { /* dna conc */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *d = strtod(argv[i+1], &endptr);
+            if ('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-dm") == 0) { /* dmso conc */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *dmso = strtod(argv[i+1], &endptr);
+            if ('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-df") == 0) { /* dmso factor */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *dmso_fact = strtod(argv[i+1], &endptr);
+            if ('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-fo") == 0) { /* formamide conc */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *formamide = strtod(argv[i+1], &endptr);
+            if ('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-tp") == 0) { /* thermodynamic params */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *tm_santalucia = (int)strtol(argv[i+1], &endptr, 10);
+            if ('\0' != *endptr || *tm_santalucia<0 || *tm_santalucia>2) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-sc") == 0) { /* salt corrections */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *salt_corrections = (int)strtol(argv[i+1], &endptr, 10);
+            if ('\0' != *endptr || *salt_corrections<0 || *salt_corrections>2) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        }
+    }
+    
+    /* All arguments processed but no sequence found */
+    *seq_start_index = argc;
+    return 0;
 }

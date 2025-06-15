@@ -31,6 +31,20 @@
 /* This program provides a command line interface to
    the function amplicontm() in amplicontm.c
 */
+
+/* Valid command line arguments for amplicontm */
+static const char* valid_args[] = {
+    "-mv", "-dv", "-n", "-dmso", "-dmso_fact", "-formamid", 
+    "-fs", "-tp", "-sc", "-mf", "-o", NULL
+};
+
+/* Forward declaration */
+int parse_amplicontm_args(int argc, char **argv, const char *usage, const char *copyright,
+                          double *mv, double *dv, double *dntp, double *dmso, 
+                          double *dmso_fact, double *formamid, double *fs_temp,
+                          int *tm_parameters, int *salt_corrections, 
+                          int *tm_formula, int *output, int *seq_start_index);
+
 int
 main(int argc, char **argv)
 {
@@ -112,165 +126,34 @@ main(int argc, char **argv)
 "    created by Erik Wright. DECIPHER is GPL-3 licensed.\n"
 "\n";
 
-   char *endptr, *seq;
+   char *seq;
    double mv = 50.0, dv = 1.5, dntp = 0.6, fs_temp = -10.0;
    double dmso = 0.0, dmso_fact = 0.6, formamid = 0.0;
-
    int tm_parameters=1, salt_corrections=1, tm_formula=1, output=1;
-   int i, j, k;
+   int seq_start_index = 0;
+   int j, k;
+   
    if (argc < 2 || argc > 24) {
      fprintf(stderr, msg, argv[0]);       
      fprintf(stderr, "%s", copyright);
      return -1;
    }
-
-   for (i=1; i < argc; ++i) {
-     if (!strncmp("-mv", argv[i], 3)) { /* conc of monovalent cations */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       mv = strtod(argv[i+1], &endptr);
-       if ('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-dv", argv[i], 3)) { /* conc of divalent cations */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       dv = strtod(argv[i+1], &endptr);
-       if('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-n", argv[i], 3)) { /* conc of dNTP */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       dntp = strtod(argv[i+1], &endptr);
-       if('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-dmso", argv[i], 3)) { /* concentration of DMSO */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       dmso = strtod(argv[i+1], &endptr);
-       if('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-dmso_fact", argv[i], 3)) { /* DMSO correction factor */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       dmso_fact = strtod(argv[i+1], &endptr);
-       if('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-formamid", argv[i], 3)) { /* concentration of formamid */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       formamid = strtod(argv[i+1], &endptr);
-       if('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-tp", argv[i], 3)) { /* parameters for melting temperature calculation */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       tm_parameters = (int)strtol(argv[i+1], &endptr, 10);
-       if ('\0' != *endptr || tm_parameters<0 || tm_parameters>1) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-sc", argv[i], 3)) { /* method of salt correction */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       salt_corrections = (int)strtol(argv[i+1], &endptr, 10);
-       if ('\0' != *endptr || salt_corrections<0 || salt_corrections>2) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-mf", argv[i], 3)) { /* formula for melting temperature calculation */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       tm_formula = (int)strtol(argv[i+1], &endptr, 10);
-       if ('\0' != *endptr || tm_formula<0 || tm_formula>1) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-fs", argv[i], 3)) { /* find salt concentation */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       fs_temp = strtod(argv[i+1], &endptr);
-       if('\0' != *endptr) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-o", argv[i], 3)) { /* output helicities table or list */
-       if (i+1 >= argc) {
-         /* Missing value */
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       output = (int)strtol(argv[i+1], &endptr, 10);
-       if ('\0' != *endptr || output<0 || output>2) {
-         fprintf(stderr, msg, argv[0]);
-         exit(-1);
-       }
-       i++;
-     } else if (!strncmp("-", argv[i], 1)) {
-       /* Unknown option. */
-       fprintf(stderr, msg, argv[0]);
-       exit(-1);
-     } else
-       break;                /* all args processed. go on to sequences. */
+   
+   /* Parse command line arguments */
+   if (parse_amplicontm_args(argc, argv, msg, copyright, 
+                             &mv, &dv, &dntp, &dmso, &dmso_fact, &formamid, 
+                             &fs_temp, &tm_parameters, &salt_corrections, 
+                             &tm_formula, &output, &seq_start_index) != 0) {
+     return -1;
    }
    
-  if(!argv[i]) { /* if no oligonucleotide sequence is specified */
-    fprintf(stderr, msg, argv[0]);
-    exit(-1);
-  }
-  /* input sequence to uppercase */
-  seq = argv[i];
+   if(seq_start_index >= argc || !argv[seq_start_index]) { 
+     /* if no oligonucleotide sequence is specified */
+     fprintf(stderr, msg, argv[0]);
+     exit(-1);
+   }
+   /* input sequence to uppercase */
+   seq = argv[seq_start_index];
 
   if (fs_temp < 0.0) {
     ret = amplicontm(seq,
@@ -396,4 +279,188 @@ main(int argc, char **argv)
 
   free_amplicon_result(&ret);
   return 0;
+}
+
+/* Parse command line arguments with hybrid parser that supports both exact matches and unique abbreviations */
+int parse_amplicontm_args(int argc, char **argv, const char *usage, const char *copyright,
+                          double *mv, double *dv, double *dntp, double *dmso, 
+                          double *dmso_fact, double *formamid, double *fs_temp,
+                          int *tm_parameters, int *salt_corrections, 
+                          int *tm_formula, int *output, int *seq_start_index) {
+    char *endptr;
+    int i, j;
+    
+    for (i = 1; i < argc; ++i) {
+        const char *current_arg = argv[i];
+        const char *matched_arg = NULL;
+        int match_count = 0;
+        
+        /* Skip if not an option (doesn't start with '-') */
+        if (current_arg[0] != '-') {
+            *seq_start_index = i;
+            return 0; /* Successfully parsed all arguments */
+        }
+        
+        /* First check for exact match */
+        for (j = 0; valid_args[j] != NULL; j++) {
+            if (strcmp(current_arg, valid_args[j]) == 0) {
+                matched_arg = valid_args[j];
+                match_count = 1;
+                break; /* Exact match found */
+            }
+        }
+        
+        /* If no exact match, check for unique abbreviation */
+        if (match_count == 0) {
+            for (j = 0; valid_args[j] != NULL; j++) {
+                if (strncmp(current_arg, valid_args[j], strlen(current_arg)) == 0) {
+                    if (match_count == 0) {
+                        matched_arg = valid_args[j];
+                    }
+                    match_count++;
+                }
+            }
+        }
+        
+        /* Handle the match result */
+        if (match_count == 0) {
+            /* Unknown argument */
+            fprintf(stderr, "error: unknown argument '%s'\n", current_arg);
+            fprintf(stderr, usage, argv[0]);
+            return -1;
+        } else if (match_count > 1) {
+            /* Ambiguous argument */
+            fprintf(stderr, "error: ambiguous argument '%s'\n", current_arg);
+            fprintf(stderr, usage, argv[0]);
+            return -1;
+        }
+        
+        /* Process the matched argument */
+        if (strcmp(matched_arg, "-mv") == 0) { /* conc of monovalent cations */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *mv = strtod(argv[i+1], &endptr);
+            if ('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-dv") == 0) { /* conc of divalent cations */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *dv = strtod(argv[i+1], &endptr);
+            if('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-n") == 0) { /* conc of dNTP */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *dntp = strtod(argv[i+1], &endptr);
+            if('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-dmso") == 0) { /* concentration of DMSO */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *dmso = strtod(argv[i+1], &endptr);
+            if('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-dmso_fact") == 0) { /* DMSO correction factor */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *dmso_fact = strtod(argv[i+1], &endptr);
+            if('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-formamid") == 0) { /* concentration of formamid */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *formamid = strtod(argv[i+1], &endptr);
+            if('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-tp") == 0) { /* parameters for melting temperature calculation */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *tm_parameters = (int)strtol(argv[i+1], &endptr, 10);
+            if ('\0' != *endptr || *tm_parameters<0 || *tm_parameters>1) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-sc") == 0) { /* method of salt correction */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *salt_corrections = (int)strtol(argv[i+1], &endptr, 10);
+            if ('\0' != *endptr || *salt_corrections<0 || *salt_corrections>2) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-mf") == 0) { /* formula for melting temperature calculation */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *tm_formula = (int)strtol(argv[i+1], &endptr, 10);
+            if ('\0' != *endptr || *tm_formula<0 || *tm_formula>1) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-fs") == 0) { /* find salt concentation */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *fs_temp = strtod(argv[i+1], &endptr);
+            if('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-o") == 0) { /* output helicities table or list */
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            *output = (int)strtol(argv[i+1], &endptr, 10);
+            if ('\0' != *endptr || *output<0 || *output>2) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        }
+    }
+    
+    /* All arguments processed but no sequence found */
+    *seq_start_index = argc;
+    return 0;
 }

@@ -40,6 +40,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 
+/* Valid command line arguments for ntdpal */
+static const char* valid_args[] = {
+    "-g", "-l", "-m", "-a", "-e", "-h", "-p", "-s", "-f1", "-f2", "-f3", NULL
+};
+
+/* Forward declaration */
+int parse_ntdpal_args(int argc, const char **argv, const char *usage,
+                      dpal_args *a, int *print_align_end, int *use_ambiguity_codes,
+                      int *use_h_matrix, int *dpal_debug, int *dpal_only, 
+                      int *seq_start_index);
+
 int
 main(int argc, const char**argv)
 {
@@ -88,66 +99,24 @@ main(int argc, const char**argv)
       "       alignment respectively.  For backward compatibility\n"
       "       e is equivalent to G.\n\n";
 
+    int seq_start_index = 0;
+    
     if (argc < 4) {
       tmp_ret = fprintf(stderr, msg, argv[0]);
       exit(-1);
       return tmp_ret;
     }
     dpal_set_default_nt_args(&a);
-    for (i=1; i < argc; ++i) {
-        if (!strncmp("-p", argv[i], 2)) {
-            dpal_debug = 1;
-        } else if (!strncmp("-l", argv[i], 2)) {
-          if (i+1 >= argc) {
-            /* Missing value */
-            fprintf(stderr, msg, argv[0]);
-            exit(-1);
-          }
-          a.gapl = (int) (strtod(argv[i+1],(char **)NULL) * -100);
-          i++;
-        } else if (!strncmp("-e", argv[i], 2)) {
-          print_align_end = 1;
-        } else if (!strncmp("-a", argv[i], 2)) {
-          use_ambiguity_codes = 1;
-        } else if (!strncmp("-h", argv[i], 2)) {
-          use_h_matrix = 1;
-        } else if (!strncmp("-g", argv[i], 2)) {
-          if (i+1 >= argc) {
-            /* Missing value */
-            fprintf(stderr, msg, argv[0]);
-            exit(-1);
-          }
-          a.gap = (int) (strtod(argv[i+1],(char **)NULL) * -100);
-          i++;
-        } else if (!strncmp("-m", argv[i], 2)) {
-          if (i+1 >= argc) {
-            /* Missing value */
-            fprintf(stderr, msg, argv[0]);
-            exit(-1);
-          }
-          a.max_gap = strtol(argv[i+1], &endptr, 10);
-          if ('\0' != *endptr) {
-            fprintf(stderr, msg, argv[0]);
-            exit(-1);
-          }
-          i++;
-        } else if (!strncmp("-s", argv[i], 2)) {
-           dpal_only = 1;
-        } else if (!strncmp("-e", argv[i], 2)) {
-          print_align_end = 1;
-        } else if (!strncmp("-f1", argv[i], 3)) {
-          a.force_generic = 1;
-        } else if (!strncmp("-f2", argv[i], 3)) {
-          a.force_long_generic = 1;
-        } else if (!strncmp("-f3", argv[i], 3)) {
-          a.force_long_maxgap1 = 1;
-        } else if (!strncmp("-", argv[i], 1)) {
-          /* Unknown option. */
-          fprintf(stderr, msg, argv[0]);
-          exit(-1);
-        } else
-          break;                /* all args processed. go on to sequences. */
+    
+    /* Parse command line arguments */
+    if (parse_ntdpal_args(argc, argv, msg, &a, &print_align_end, 
+                          &use_ambiguity_codes, &use_h_matrix, 
+                          &dpal_debug, &dpal_only, &seq_start_index) != 0) {
+      return -1;
     }
+    
+    /* Update i for backward compatibility */
+    i = seq_start_index;
     if (use_h_matrix) dpal_set_h_nt_matrix(&a);
     if (use_ambiguity_codes) dpal_set_ambiguity_code_matrix(&a);
     if (dpal_debug && dpal_only) {
@@ -209,5 +178,108 @@ main(int argc, const char**argv)
         printf("|%d,%d", r.path[i][0],r.path[i][1]);
       printf("|\n");
     }
+    return 0;
+}
+
+/* Parse command line arguments with hybrid parser that supports both exact matches and unique abbreviations */
+int parse_ntdpal_args(int argc, const char **argv, const char *usage,
+                      dpal_args *a, int *print_align_end, int *use_ambiguity_codes,
+                      int *use_h_matrix, int *dpal_debug, int *dpal_only, 
+                      int *seq_start_index) {
+    char *endptr;
+    int i, j;
+    
+    for (i = 1; i < argc; ++i) {
+        const char *current_arg = argv[i];
+        const char *matched_arg = NULL;
+        int match_count = 0;
+        
+        /* Skip if not an option (doesn't start with '-') */
+        if (current_arg[0] != '-') {
+            *seq_start_index = i;
+            return 0; /* Successfully parsed all arguments */
+        }
+        
+        /* First check for exact match */
+        for (j = 0; valid_args[j] != NULL; j++) {
+            if (strcmp(current_arg, valid_args[j]) == 0) {
+                matched_arg = valid_args[j];
+                match_count = 1;
+                break; /* Exact match found */
+            }
+        }
+        
+        /* If no exact match, check for unique abbreviation */
+        if (match_count == 0) {
+            for (j = 0; valid_args[j] != NULL; j++) {
+                if (strncmp(current_arg, valid_args[j], strlen(current_arg)) == 0) {
+                    if (match_count == 0) {
+                        matched_arg = valid_args[j];
+                    }
+                    match_count++;
+                }
+            }
+        }
+        
+        /* Handle the match result */
+        if (match_count == 0) {
+            /* Unknown argument */
+            fprintf(stderr, "error: unknown argument '%s'\n", current_arg);
+            fprintf(stderr, usage, argv[0]);
+            return -1;
+        } else if (match_count > 1) {
+            /* Ambiguous argument */
+            fprintf(stderr, "error: ambiguous argument '%s'\n", current_arg);
+            fprintf(stderr, usage, argv[0]);
+            return -1;
+        }
+        
+        /* Process the matched argument */
+        if (strcmp(matched_arg, "-p") == 0) {
+            *dpal_debug = 1;
+        } else if (strcmp(matched_arg, "-l") == 0) {
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            a->gapl = (int) (strtod(argv[i+1],(char **)NULL) * -100);
+            i++;
+        } else if (strcmp(matched_arg, "-e") == 0) {
+            *print_align_end = 1;
+        } else if (strcmp(matched_arg, "-a") == 0) {
+            *use_ambiguity_codes = 1;
+        } else if (strcmp(matched_arg, "-h") == 0) {
+            *use_h_matrix = 1;
+        } else if (strcmp(matched_arg, "-g") == 0) {
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            a->gap = (int) (strtod(argv[i+1],(char **)NULL) * -100);
+            i++;
+        } else if (strcmp(matched_arg, "-m") == 0) {
+            if (i+1 >= argc) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            a->max_gap = strtol(argv[i+1], &endptr, 10);
+            if ('\0' != *endptr) {
+                fprintf(stderr, usage, argv[0]);
+                return -1;
+            }
+            i++;
+        } else if (strcmp(matched_arg, "-s") == 0) {
+            *dpal_only = 1;
+        } else if (strcmp(matched_arg, "-f1") == 0) {
+            a->force_generic = 1;
+        } else if (strcmp(matched_arg, "-f2") == 0) {
+            a->force_long_generic = 1;
+        } else if (strcmp(matched_arg, "-f3") == 0) {
+            a->force_long_maxgap1 = 1;
+        }
+    }
+    
+    /* All arguments processed but no sequence found */
+    *seq_start_index = argc;
     return 0;
 }
