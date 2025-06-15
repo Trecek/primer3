@@ -185,9 +185,7 @@ $test_count++;
 print "Test 6: oligotm ambiguous argument detection... ";
 $test_count++;
 {
-    # Note: -d by itself is not ambiguous in oligotm, but let's test a truly ambiguous case
-    # Actually, in oligotm, -d matches only -d, -dm matches only -dm, -df matches only -df
-    # So let's skip this test for oligotm as it doesn't have ambiguous prefixes
+    # oligotm uses exact length matching for arguments
     print "[SKIPPED] (oligotm uses exact lengths)\n";
 }
 
